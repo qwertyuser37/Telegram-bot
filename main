@@ -1,0 +1,73 @@
+# Импорт фреймворков
+import asyncio
+import requests
+import datetime
+import math
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from aiogram import F
+
+# Токен(не указан)
+API_TOKEN = 'Token'
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher()
+
+# Первое сообщение
+@dp.message(Command('start'))
+async def first_message(message: types.Message):
+    await message.reply("Данный бот показывает погоду. Укажи город")
+
+# Подключение к базам данных(токен не указан), выбор города
+@dp.message(F.text)
+async def weather(message: types.Message):
+    city = message.text
+    try:
+        response = requests.get(f"http://api.openweathermap.org/data/2.5/weather?q={city}&lang=ru&units=metric")
+        data = response.json()
+        if response.status_code != 200:
+            await message.reply("Проверь название города")
+            return
+    except Exception as e:
+        await message.reply("Ошибка при получении данных о погоде")
+        return
+
+# Основные данные
+    temp = data["main"]["temp"]
+    humidity = data["main"]["humidity"]
+    pressure = data["main"]["pressure"]
+    wind = data["wind"]["speed"]
+    sunrise = datetime.datetime.fromtimestamp(data["sys"]["sunrise"])
+    sunset = datetime.datetime.fromtimestamp(data["sys"]["sunset"])
+    length = sunset - sunrise
+
+    code = {
+        "Clear": "Ясно ☀️",
+        "Clouds": "Облачно ☁️",
+        "Rain": "Дождь 🌧️",
+        "Drizzle": "Дождь 🌦️",
+        "Thunderstorm": "Гроза ⛈️",
+        "Snow": "Снег ❄️",
+        "Mist": "Туман 🌫️"
+    }
+
+    weather = data["weather"][0]["main"]
+    wd = code.get(weather, "Не понятно, какая погода")
+
+# Вывод погоды
+    await message.reply(
+        f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')} \n"
+        f"Погода в городе: {city}\n"
+        f"Температура: {temp}°C {wd}\n"
+        f"Влажность: {humidity}%\n"
+        f"Давление: {math.ceil(pressure / 1.333)} мм.рт.ст\n"
+        f"Ветер: {wind} м/с \n"
+        f"Восход солнца: {sunrise}\n"
+        f"Закат солнца: {sunset}\n"
+        f"Продолжительность дня: {length}\n"
+    )
+
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == '__main__':
+    asyncio.run(main())
